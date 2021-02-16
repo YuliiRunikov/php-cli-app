@@ -1,0 +1,154 @@
+parameters:
+  logger.stream: 'php://output'
+  logger.formatter.date: "H:i:s"
+  logger.formatter.output: "[%%datetime%%] %%level_name%%: %%message%%\n"
+
+  logger.stream.file: 'mylog.log'
+  logger.formatter.date.file: "Y-m-d H:i:s"
+  logger.formatter.output.file: "[%%datetime%%] %%level_name%%: %%message%%\n"
+
+  arg.REQUIRED: 1
+  arg.OPTIONAL: 2
+  arg.IS_ARRAY: 4
+
+  request.sleep.interval.us: 100000
+
+services:
+  logger.formatter:
+    class:
+      Monolog\Formatter\LineFormatter
+    arguments:
+      - '%logger.formatter.output%'
+      - '%logger.formatter.date%'
+      - true
+      - true
+
+  logger.formatter.file:
+    class:
+      Monolog\Formatter\LineFormatter
+    arguments:
+      - '%logger.formatter.output.file%'
+      - '%logger.formatter.date.file%'
+      - true
+      - true
+
+  logger.handler.console.file:
+    class:
+      Monolog\Handler\StreamHandler
+    arguments:
+      - '%logger.stream.file%'
+    calls:
+      - [ setFormatter, [ '@logger.formatter.file' ] ]
+
+
+  logger.handler.console:
+    class:
+      Monolog\Handler\StreamHandler
+    arguments:
+      - '%logger.stream%'
+    calls:
+      - [ setFormatter, [ '@logger.formatter' ] ]
+
+  logger:
+    class: Monolog\Logger
+    arguments:
+      - 'default'
+    calls:
+      - [ pushHandler, [ '@logger.handler.console' ] ]
+   #   - [ pushHandler, [ '@logger.handler.console.file' ] ]
+
+  helper.http.client:
+    class: GuzzleHttp\Client
+
+  helper.contact.enumerator:
+    class: Fixer\EntityEnumerator
+    arguments:
+      - "contact"
+      - "@logger"
+      - "@helper.http.client"
+
+  helper.contact.fixer:
+    class: Fixer\EntityFixer
+    arguments:
+      - "contact"
+      - "@logger"
+      - "@helper.http.client"
+
+  helper.lead.enumerator:
+    class: Fixer\EntityEnumerator
+    arguments:
+      - "lead"
+      - "@logger"
+      - "@helper.http.client"
+
+  helper.lead.fixer:
+    class: Fixer\EntityFixer
+    arguments:
+      - "lead"
+      - "@logger"
+      - "@helper.http.client"
+
+  helper.company.enumerator:
+    class: Fixer\EntityEnumerator
+    arguments:
+      - "company"
+      - "@logger"
+      - "@helper.http.client"
+
+  helper.company.fixer:
+    class: Fixer\EntityFixer
+    arguments:
+      - "company"
+      - "@logger"
+      - "@helper.http.client"
+
+
+
+  command.contact.fix:
+    class: Fixer\Commands\FixCommand
+    arguments:
+      - "@logger"
+      - "@helper.contact.enumerator"
+      - "@helper.contact.fixer"
+      - "%request.sleep.interval.us%"
+    calls:
+      - [ setName, [ "contact:fix" ] ]
+      - [ setDescription, [ "Fixes prone numbers. Removes +38 in the beginning" ] ]
+      - [ addArgument, [ "rest-endpoint", "%arg.REQUIRED%", "REST endpoint, e.g.: 'https://crm-dp.bitrix24.ua/rest'" ] ]
+      - [ addArgument, [ "user-id", "%arg.REQUIRED%", "REST user ID, e.g.: 1" ] ]
+      - [ addArgument, [ "user-token", "%arg.REQUIRED%", "REST user token, e.g.: 'sadfasdfsadf'" ] ]
+
+  command.lead.fix:
+    class: Fixer\Commands\FixCommand
+    arguments:
+      - "@logger"
+      - "@helper.lead.enumerator"
+      - "@helper.lead.fixer"
+      - "%request.sleep.interval.us%"
+    calls:
+      - [ setName, [ "lead:fix" ] ]
+      - [ setDescription, [ "Fixes prone numbers. Removes +38 in the beginning" ] ]
+      - [ addArgument, [ "rest-endpoint", "%arg.REQUIRED%", "REST endpoint, e.g.: 'https://crm-dp.bitrix24.ua/rest'" ] ]
+      - [ addArgument, [ "user-id", "%arg.REQUIRED%", "REST user ID, e.g.: 1" ] ]
+      - [ addArgument, [ "user-token", "%arg.REQUIRED%", "REST user token, e.g.: 'sadfasdfsadf'" ] ]
+
+  command.company.fix:
+    class: Fixer\Commands\FixCommand
+    arguments:
+      - "@logger"
+      - "@helper.company.enumerator"
+      - "@helper.company.fixer"
+      - "%request.sleep.interval.us%"
+    calls:
+      - [ setName, [ "company:fix" ] ]
+      - [ setDescription, [ "Fixes prone numbers. Removes +38 in the beginning" ] ]
+      - [ addArgument, [ "rest-endpoint", "%arg.REQUIRED%", "REST endpoint, e.g.: 'https://crm-dp.bitrix24.ua/rest'" ] ]
+      - [ addArgument, [ "user-id", "%arg.REQUIRED%", "REST user ID, e.g.: 1" ] ]
+      - [ addArgument, [ "user-token", "%arg.REQUIRED%", "REST user token, e.g.: 'sadfasdfsadf'" ] ]
+
+  cli-app:
+    class: Symfony\Component\Console\Application
+    calls:
+      - [ add, [ '@command.contact.fix' ] ]
+      - [ add, [ '@command.lead.fix' ] ]
+      - [ add, [ '@command.company.fix' ] ]
